@@ -11,7 +11,7 @@ phantom.onError = function (msg, trace) {
 	});
 };
 
-var concurrency = 20;
+var concurrency = 34;
 
 var page_scans_in_progress = 0;
 
