@@ -11,5 +11,10 @@ Written in Node.js with Phantom.js, it's a very quick and dirty command line app
 $ npm install
 $ node start.js your.domain.name
 ```
+or, if you want to just see the site map without static resources, do:
+
+```
+$ node start.js your.domain.name site_map_only
+```
 
 5. If it goes on too long, Ctrl+C is your friend ;)
