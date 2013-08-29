@@ -11,8 +11,7 @@ phantom.onError = function (msg, trace) {
 	});
 };
 
-var root_domain = "samsalisbury.net",
-    concurrency = 20;
+var concurrency = 20;
 
 var page_scans_in_progress = 0;
 
@@ -129,7 +128,7 @@ var consume_queue = function () {
 	if(page_scans_in_progress >= concurrency) {
 		wait();
 	} else if(queue.length > 0) {
-		var full_url = url.resolve("http://samsalisbury.net/", queue.pop());
+		var full_url = url.resolve("http://"+root_domain+"/", queue.pop());
 		console.log('=== Beginning scan of ' + full_url);
 		try {
 			begin_page_scan(full_url);
@@ -149,4 +148,6 @@ var consume_queue = function () {
 	}
 };
 
-enqueue_page_scan("http://samsalisbury.net");
+var root_domain = process.argv.slice(2)[0];
+
+enqueue_page_scan("http://" + root_domain);
