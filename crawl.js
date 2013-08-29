@@ -37,16 +37,39 @@ function Crawler(domain, done) {
 					// This makes it really difficult to refactor this lot
 					// into anything much more readable.
 					page.evaluate(function () {
-						var nodeList = document.getElementsByTagName('a');
+						var anchors = document.getElementsByTagName('a');
 						var urls = [];
-						for(var i = 0; i < nodeList.length; ++i) {
-							urls.push(nodeList[i].getAttribute('href'));
+						for(var i = 0; i < anchors.length; ++i) {
+							urls.push(anchors[i].getAttribute('href'));
 						}
-						return urls;
-					}, function (urls) {
-						for(var i in urls) {
-							var normalised_url = normalise_url(page_url, urls[i]);
-							url_bank.add(normalised_url);
+						var static_resources = [];
+						var images = document.getElementsByTagName('img');
+						for(i = 0; i < images.length; ++i) {
+							static_resources.push(images[i].getAttribute('src'));
+						}
+						var links = document.querySelectorAll('link');
+						for(i = 0; i < links.length; ++i) {
+							var href = links[i].getAttribute(href);
+							if(href) {
+								static_resources.push(href);
+							}
+						}
+						var scripts = document.getElementsByTagName('script');
+						for(i = 0; i < scripts.length; ++i) {
+							var script_src = scripts[i].getAttribute('src');
+							if(script_src) {
+								static_resources.push(script_src);
+							}
+						}
+
+						return {
+							urls: urls,
+							static_resources: static_resources
+						};
+					}, function (data) {
+						for(var i in data.urls) {
+							var normalised_url = normalise_url(page_url, data.urls[i]);
+							url_bank.add(normalised_url, data.static_resources);
 						}
 						--page_scans_in_progress;
 					});
@@ -124,11 +147,11 @@ function Crawler(domain, done) {
 	var url_bank = (function () {
 		stored_urls = {};
 		return {
-			add: function(page_url) {
+			add: function(page_url, static_resources) {
 				if(stored_urls.hasOwnProperty(page_url)) {
 					return;
 				}
-				stored_urls[page_url] = page_url;
+				stored_urls[page_url] = static_resources;
 				enqueue_page_scan(page_url);
 			},
 			all: function() {
@@ -193,9 +216,7 @@ function Crawler(domain, done) {
 			if(all.hasOwnProperty(i)) {
 				returnArray.push({
 					'url': i,
-					'static_resources': [
-
-					]
+					'static_resources': all[i]
 				});
 			}
 		}
