@@ -9,11 +9,6 @@
 	"author": "Sam Salisbury",
 	"license": "BSD",
 	"dependencies": {
-		"phantom": "0.5.2",
-		"async": "0.2.9",
-		"portscanner": "0.1.3"
-	},
-	"devDependencies": {
-		"mocha": "1.12.0"
+		"phantom": "0.5.2"
 	}
 }
