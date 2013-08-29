@@ -140,14 +140,26 @@ var consume_queue = function () {
 		wait();
 	} else {
 		// Nothing left to do, print results...
-		console.log("Total of " + url_bank.count() + " URLs found");
-		for(var u in url_bank.all()) {
-			console.log(u);
-		}
-		console.log("Total of " + url_bank.count() + " URLs found");
+		print_results();
 	}
 };
 
 var root_domain = process.argv.slice(2)[0];
 
+var timer = function () {
+	var startTime = process.hrtime();
+	return function () {
+		var diff = process.hrtime(startTime);
+		return (diff[0] * 1e9 + diff[1]) / 1e9;
+	};
+};
+var t = timer();
 enqueue_page_scan("http://" + root_domain);
+
+function print_results() {
+	console.log("Total of " + url_bank.count() + " URLs found:");
+	for(var u in url_bank.all()) {
+		console.log(u);
+	}
+	console.log("Total of " + url_bank.count() + " URLs found in " + t() + "s");
+}
