@@ -31,6 +31,11 @@ function Crawler(domain, done) {
 			page.open(page_url, function(status) {
 				if(status == 'success') {
 					console.log("Successfuly opened " + page_url);
+					// Inside page.evaluate, the function has no access
+					// to the rest of the local or global variables, it
+					// runs entirely in the scope of the browser.
+					// This makes it really difficult to refactor this lot
+					// into anything much more readable.
 					page.evaluate(function () {
 						var nodeList = document.getElementsByTagName('a');
 						var urls = [];
