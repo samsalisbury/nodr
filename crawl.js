@@ -19,38 +19,64 @@ var port_number = 9999;
 
 var begin_page_scan = function (page_url) {
 	++page_scans_in_progress;
-	portscanner.findAPortNotInUse(9000, 9999, 'localhost', function(error, port) {
-		console.log('Using port: ' + port_number);
-		phantom.create('--load-images=no',{'port': port_number++}, function(ph) {
-			ph.createPage(function(page) {
-				page.open(page_url, function(status){
-					if(status == 'success') {
-						console.log("Successfuly opened " + page_url);
-					} else {
-						console.log("Failed to open " + page_url + "(" + status + ")");
+	with_phantom(function(ph) {
+		ph.createPage(function(page) {
+			page.open(page_url, function(status){
+				if(status == 'success') {
+					console.log("Successfuly opened " + page_url);
+				} else {
+					console.log("Failed to open " + page_url + "(" + status + ")");
+				}
+				page.evaluate(function () {
+					var nodeList = document.getElementsByTagName('a');
+					var urls = [];
+					for(var i = 0; i < nodeList.length; ++i) {
+						urls.push(nodeList[i].getAttribute('href'));
 					}
-					page.evaluate(function () {
-						var nodeList = document.getElementsByTagName('a');
-						var urls = [];
-						for(var i = 0; i < nodeList.length; ++i) {
-							urls.push(nodeList[i].getAttribute('href'));
-						}
-						return urls;
-					}, function (urls) {
-						// We've been sent back the urls, normalise
-						// them an put them on the list...
-						for(var i in urls) {
-							var normalised_url = normalise_url(page_url, urls[i]);
-							url_bank.add(normalised_url);
-						}
-						ph.exit();
-						--page_scans_in_progress;
-					});
+					return urls;
+				}, function (urls) {
+					// We've been sent back the urls, normalise
+					// them an put them on the list...
+					for(var i in urls) {
+						var normalised_url = normalise_url(page_url, urls[i]);
+						url_bank.add(normalised_url);
+					}
+					//ph.exit();
+					--page_scans_in_progress;
 				});
 			});
 		});
 	});
 };
+
+var the_phantom = null;
+var waiting_for_the_phantom = false;
+
+function with_phantom(callback) {
+	if(the_phantom == null) {
+		if(waiting_for_the_phantom) {
+			setTimeout(function () {
+				with_phantom(callback);
+			}, 100);
+		} else {
+			// TODO: Rename this to jobs-in-progress
+			++page_scans_in_progress;
+			console.log("Creating new phantom instance...");
+			waiting_for_the_phantom = true;
+			portscanner.findAPortNotInUse(9000, 9999, 'localhost', function(error, port) {
+				console.log('Using port: ' + port_number);
+				phantom.create('--load-images=no',{'port': port_number++}, function(ph) {
+					the_phantom = ph;
+					callback(the_phantom);
+					--page_scans_in_progress;
+				});
+			});
+		}
+	} else {
+		callback(the_phantom);
+	}
+}
+
 
 String.prototype.startsWith = function (other) {
 	return this.substr(0, other.length) == other;
@@ -109,7 +135,6 @@ var url_bank = (function () {
 }());
 
 var queue = [];
-var consume_queue_timeout = 0;
 
 var enqueue_page_scan = function (page_url) {
 	console.log("Adding " + page_url + " to queue["+ queue.length +"]...")
@@ -117,9 +142,10 @@ var enqueue_page_scan = function (page_url) {
 	wait();
 };
 
+var this_waiter = 0;
 var wait = function () {
-	clearTimeout(consume_queue_timeout);
-	consume_queue_timeout = setTimeout(consume_queue, 10);
+	clearTimeout(this_waiter);
+	this_waiter = setTimeout(consume_queue, 10);
 };
 
 var consume_queue = function () {
@@ -141,6 +167,7 @@ var consume_queue = function () {
 	} else {
 		// Nothing left to do, print results...
 		print_results();
+		the_phantom.exit();
 	}
 };
 
