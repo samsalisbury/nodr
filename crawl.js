@@ -12,18 +12,18 @@ phantom.onError = function (msg, trace) {
 };
 
 var root_domain = "samsalisbury.net",
-    concurrency = 1;
+    concurrency = 10;
 
 var page_scans_in_progress = 0;
+
+var port_number = 9999;
 
 var begin_page_scan = function (page_url) {
 	++page_scans_in_progress;
 	portscanner.findAPortNotInUse(9000, 9999, 'localhost', function(error, port) {
-		console.log('Using port: ' + port);
-		phantom.create('--load-images=no',{'port': port}, function(ph) {
+		console.log('Using port: ' + port_number);
+		phantom.create('--load-images=no',{'port': port_number++}, function(ph) {
 			ph.createPage(function(page) {
-
-				
 				page.open(page_url, function(status){
 					if(status == 'success') {
 						console.log("Successfuly opened " + page_url);
@@ -95,18 +95,9 @@ var queue = [];
 var consume_queue_timeout = 0;
 
 var enqueue_page_scan = function (page_url) {
-	if(page_scans_in_progress < concurrency) {
-		console.log("Scanning " + page_url + " right now.")
-		try {
-			begin_page_scan(page_url);
-		} catch(error) {
-			console.log("===ERROR (enqueue_page_scan)=== " + error);
-		}
-	} else {
-		console.log("Adding " + page_url + " to queue["+ queue.length +"]...")
-		queue.push(page_url);
-		wait();
-	}
+	console.log("Adding " + page_url + " to queue["+ queue.length +"]...")
+	queue.push(page_url);
+	wait();
 };
 
 var wait = function () {
@@ -132,7 +123,7 @@ var consume_queue = function () {
 		wait();
 		return;
 	}
-	exit();
+	wait();
 };
 
 enqueue_page_scan("http://samsalisbury.net");
