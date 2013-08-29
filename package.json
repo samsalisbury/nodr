@@ -1,0 +1,18 @@
+{
+	"name": "NodeCrawler",
+	"version": "0.0.0",
+	"description": "A fast (hopefully!) web crawler.",
+	"main": "crawl.js",
+	"scripts": {
+		"test": "node_modules/.bin/mocha"
+	},
+	"author": "Sam Salisbury",
+	"license": "BSD",
+	"dependencies": {
+		"phantom": "0.5.2",
+		"async": "0.2.9"
+	},
+	"devDependencies": {
+		"mocha": "1.12.0"
+	}
+}
