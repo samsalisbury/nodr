@@ -12,7 +12,7 @@ phantom.onError = function (msg, trace) {
 };
 
 var root_domain = "samsalisbury.net",
-    concurrency = 10;
+    concurrency = 20;
 
 var page_scans_in_progress = 0;
 
@@ -55,7 +55,7 @@ var begin_page_scan = function (page_url) {
 
 String.prototype.startsWith = function (other) {
 	return this.substr(0, other.length) == other;
-}
+};
 
 // This cheats and sends back "/" in the case of an off-site URL
 var normalise_url = function (page_url, href) {
@@ -63,17 +63,23 @@ var normalise_url = function (page_url, href) {
 	var http_start = 'http://' + root_domain;
 	var https_start = 'https://' + root_domain;
 	if(resolved.startsWith(http_start)) {
-		return resolved.substr(http_start.length);
+		resolved = resolved.substr(http_start.length);
 	}
 	if(resolved.startsWith(https_start)) {
-		return resolved.substr(https_start.length);
+		resolved = resolved.substr(https_start.length);
 	}
 	if(resolved.startsWith("http://") || resolved.startsWith("https://")) {
 		// This must be offsite
 		return "/";
 	}
+
+	var hashIndex = resolved.indexOf('#');
+	if(hashIndex != -1) {
+		resolved = resolved.substring(0, hashIndex);
+	}
+
 	return resolved;
-}
+};
 
 var url_bank = (function () {
 
@@ -86,6 +92,18 @@ var url_bank = (function () {
 			}
 			stored_urls[page_url] = page_url;
 			enqueue_page_scan(page_url);
+		},
+		all: function() {
+			return stored_urls;
+		},
+		count: function() {
+			var count = 0;
+			for(var i in stored_urls) {
+				if(stored_urls.hasOwnProperty(i)) {
+					++count;
+				}
+			}
+			return count;
 		}
 	};
 
@@ -102,17 +120,15 @@ var enqueue_page_scan = function (page_url) {
 
 var wait = function () {
 	clearTimeout(consume_queue_timeout);
-	consume_queue_timeout = setTimeout(consume_queue, 500);
+	consume_queue_timeout = setTimeout(consume_queue, 10);
 };
 
 var consume_queue = function () {
-	console.log("Checking queue; page_scans_in_progress=" +
-		page_scans_in_progress + "; queue.length=" + queue.length);
+	//console.log("Checking queue; page_scans_in_progress=" +
+	//	page_scans_in_progress + "; queue.length=" + queue.length);
 	if(page_scans_in_progress >= concurrency) {
 		wait();
-		return;
-	}
-	if(queue.length > 0) {
+	} else if(queue.length > 0) {
 		var full_url = url.resolve("http://samsalisbury.net/", queue.pop());
 		console.log('=== Beginning scan of ' + full_url);
 		try {
@@ -121,9 +137,16 @@ var consume_queue = function () {
 			console.log("===ERROR (consume_queue)=== " + error);
 		}
 		wait();
-		return;
+	} else if(page_scans_in_progress > 0) {
+		wait();
+	} else {
+		// Nothing left to do, print results...
+		console.log("Total of " + url_bank.count() + " URLs found");
+		for(var u in url_bank.all()) {
+			console.log(u);
+		}
+		console.log("Total of " + url_bank.count() + " URLs found");
 	}
-	wait();
 };
 
 enqueue_page_scan("http://samsalisbury.net");
