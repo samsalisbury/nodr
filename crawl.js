@@ -69,8 +69,9 @@ function Crawler(domain, done) {
 					}, function (data) {
 						for(var i in data.urls) {
 							var normalised_url = normalise_url(page_url, data.urls[i]);
-							url_bank.add(normalised_url, data.static_resources);
+							url_bank.add(normalised_url);
 						}
+						url_bank.add_static_resources(page_url, data.static_resources);
 						--page_scans_in_progress;
 					});
 				} else {
@@ -153,8 +154,11 @@ function Crawler(domain, done) {
 				if(stored_urls.hasOwnProperty(page_url) || failed_urls.hasOwnProperty(page_url)) {
 					return;
 				}
-				stored_urls[page_url] = static_resources;
+				stored_urls[page_url] = [];
 				enqueue_page_scan(page_url);
+			},
+			add_static_resources: function(page_url, static_resources) {
+				stored_urls[page_url] = static_resources;
 			},
 			all: function() {
 				return stored_urls;
