@@ -25,7 +25,7 @@ function Crawler(domain, done) {
 	};
 
 	var page_scans_in_progress = 0;
-	var begin_page_scan = function (page_url) {
+	var begin_page_scan = function (page_url, relative_url) {
 		++page_scans_in_progress;
 		with_page(function(page) {
 			page.open(page_url, function(status) {
@@ -71,7 +71,7 @@ function Crawler(domain, done) {
 							var normalised_url = normalise_url(page_url, data.urls[i]);
 							url_bank.add(normalised_url);
 						}
-						url_bank.add_static_resources(page_url, data.static_resources);
+						url_bank.add_static_resources(relative_url, data.static_resources);
 						--page_scans_in_progress;
 					});
 				} else {
@@ -202,10 +202,11 @@ function Crawler(domain, done) {
 			// Can't have any more concurrent scans, wait in line...
 			wait();
 		} else if(queue.length > 0) {
-			var full_url = url.resolve("http://"+root_domain+"/", queue.pop());
+			var relative_url = queue.pop();
+			var full_url = url.resolve("http://"+root_domain+"/", relative_url);
 			console.log('=== Beginning scan of ' + full_url);
 			try {
-				begin_page_scan(full_url);
+				begin_page_scan(full_url, relative_url);
 			} catch(error) {
 				console.log("===ERROR (consume_queue)=== " + error);
 			}
@@ -262,7 +263,7 @@ function Crawler(domain, done) {
 	return {
 		start: function () {
 			t = timer();
-			enqueue_page_scan("http://" + root_domain);
+			enqueue_page_scan("http://" + root_domain + "/", "/");
 		}
 	};
 }
