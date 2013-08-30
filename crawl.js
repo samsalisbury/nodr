@@ -75,6 +75,7 @@ function Crawler(domain, done) {
 					});
 				} else {
 					console.log("Failed to open " + page_url + "(" + status + ")");
+					url_bank.failed(page_url);
 					--page_scans_in_progress;
 				}
 			});
@@ -145,10 +146,11 @@ function Crawler(domain, done) {
 	};
 
 	var url_bank = (function () {
-		stored_urls = {};
+		var stored_urls = {};
+		var failed_urls = {};
 		return {
 			add: function(page_url, static_resources) {
-				if(stored_urls.hasOwnProperty(page_url)) {
+				if(stored_urls.hasOwnProperty(page_url) || failed_urls.hasOwnProperty(page_url)) {
 					return;
 				}
 				stored_urls[page_url] = static_resources;
@@ -156,6 +158,9 @@ function Crawler(domain, done) {
 			},
 			all: function() {
 				return stored_urls;
+			},
+			failures: function () {
+				return failed_urls;
 			},
 			count: function() {
 				var count = 0;
@@ -165,6 +170,11 @@ function Crawler(domain, done) {
 					}
 				}
 				return count;
+			},
+			failed: function(page_url) {
+				// this indicates that a page could not be scanned
+				delete stored_urls[page_url];
+				failed_urls[page_url] = 1;
 			}
 		};
 	}());
@@ -201,26 +211,38 @@ function Crawler(domain, done) {
 			wait();
 		} else {
 			// Nothing left to do, send the results...
-			done({
-				time_taken: t(),
-				pages_scanned: format_url_bank_for_return()
-			});
+			var time_taken = t();
+			done(format_results_for_return(time_taken));
 			the_phantom.exit();
 		}
 	};
 
-	var format_url_bank_for_return = function () {
-		var returnArray = [];
+	var format_results_for_return = function (time_taken) {
+		var pages_scanned = [];
 		var all = url_bank.all();
 		for(var i in all) {
 			if(all.hasOwnProperty(i)) {
-				returnArray.push({
+				pages_scanned.push({
 					'url': i,
 					'static_resources': all[i]
 				});
 			}
 		}
-		return returnArray;
+		var pages_failed = [];
+		var failures = url_bank.failures();
+		for(i in failures) {
+			if(failures.hasOwnProperty(i)) {
+				pages_failed.push(i);
+			}
+		}
+
+		return {
+			time_taken: time_taken,
+			total_pages_scanned: pages_scanned.length,
+			total_pages_failed: pages_failed.length,
+			pages_failed: pages_failed,
+			pages_scanned: pages_scanned
+		};
 	};
 
 	var timer = function () {
