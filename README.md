@@ -11,10 +11,6 @@ Written in Node.js with Phantom.js, it's a very quick and dirty command line app
 $ npm install
 $ node start.js your.domain.name
 ```
-or, if you want to just see the site map without static resources, do:
+5. Once it's finished, a file will be saved to the current directory containing the results as JSON. (Named domain.name.json)
 
-```
-$ node start.js your.domain.name site_map_only
-```
-
-5. If it goes on too long, Ctrl+C is your friend ;)
+6. If it goes on too long, Ctrl+C is your friend ;) I might extend this to handle pauses in processing if I get time…
