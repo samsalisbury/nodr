@@ -3,7 +3,7 @@ exports.go = function (domain, done_callback) {
 	var crawler = new Crawler(domain, done_callback);
 
 	crawler.start();
-}
+};
 
 function Crawler(domain, done) {
 
@@ -18,15 +18,15 @@ function Crawler(domain, done) {
 	// End should be passed on command line
 
 	phantom.onError = function (msg, trace) {
-		console.log(msg);
+		console.log("PhantomJS ERROR:::" + msg);
 		trace.forEach(function(item) {
 			console.log('  ', item.file, ':', item.line);
 		});
 	};
 
-	var page_scans_in_progress = 0;
+	var jobs_in_progress = 0;
 	var begin_page_scan = function (page_url, relative_url) {
-		++page_scans_in_progress;
+		++jobs_in_progress;
 		with_page(function(page) {
 			page.open(page_url, function(status) {
 				if(status == 'success') {
@@ -72,12 +72,14 @@ function Crawler(domain, done) {
 							url_bank.add(normalised_url);
 						}
 						url_bank.add_static_resources(relative_url, data.static_resources);
-						--page_scans_in_progress;
+						--jobs_in_progress;
+						page.close();
 					});
 				} else {
 					console.log("Failed to open " + page_url + "(" + status + ")");
 					url_bank.failed(page_url);
-					--page_scans_in_progress;
+					--jobs_in_progress;
+					page.close();
 				}
 			});
 		});
@@ -95,21 +97,20 @@ function Crawler(domain, done) {
 	var waiting_for_the_phantom = false;
 
 	function with_phantom(callback) {
-		if(the_phantom == null) {
+		if(the_phantom === null) {
 			if(waiting_for_the_phantom) {
 				setTimeout(function () {
 					with_phantom(callback);
 				}, 100);
 			} else {
-				// TODO: Rename this to jobs-in-progress
-				++page_scans_in_progress;
-				console.log("Creating new phantom instance...");
 				waiting_for_the_phantom = true;
+				++jobs_in_progress;
+				console.log("Creating new phantom instance...");
 				console.log('Using port: ' + port_number);
 				phantom.create('--load-images=no',{'port': port_number}, function(ph) {
 					the_phantom = ph;
 					callback(the_phantom);
-					--page_scans_in_progress;
+					--jobs_in_progress;
 				});
 			}
 		} else {
@@ -186,7 +187,7 @@ function Crawler(domain, done) {
 	var queue = [];
 
 	var enqueue_page_scan = function (page_url) {
-		console.log("Adding " + page_url + " to queue["+ queue.length +"]...")
+		console.log("Adding " + page_url + " to queue["+ queue.length +"]...");
 		queue.push(page_url);
 		wait();
 	};
@@ -197,8 +198,27 @@ function Crawler(domain, done) {
 		this_waiter = setTimeout(consume_queue, queue_poll_frequency);
 	};
 
+	var phantom_killed = false;
+
+	var print_status = function () {
+		var status_message = "TIME ELAPSED: " + Math.floor(t()) + "s, Queue size: " + queue.length + "; Jobs in progress: " + jobs_in_progress;
+		console.log(status_message);
+	};
+
+	// print status roughly every 5 seconds
+	var print_status_every = 5000/queue_poll_frequency;
+	var status_counter = 0;
+
+	var maybe_print_status = function () {
+		if(status_counter++ === print_status_every) {
+			status_counter = 0;
+			print_status();
+		}
+	};
+
 	var consume_queue = function () {
-		if(page_scans_in_progress >= concurrency) {
+		maybe_print_status();
+		if(jobs_in_progress >= concurrency) {
 			// Can't have any more concurrent scans, wait in line...
 			wait();
 		} else if(queue.length > 0) {
@@ -211,7 +231,7 @@ function Crawler(domain, done) {
 				console.log("===ERROR (consume_queue)=== " + error);
 			}
 			wait();
-		} else if(page_scans_in_progress > 0) {
+		} else if(jobs_in_progress > 0) {
 			// Need to wait until all the scans finish before we can exit.
 			wait();
 		} else {
