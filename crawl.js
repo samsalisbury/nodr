@@ -24,6 +24,17 @@ function Crawler(domain, done) {
 		});
 	};
 
+	var anchor_spy = function () {
+		window.anchor_spy = function () {
+			var anchors = document.getElementsByTagName('a');
+			var urls = [];
+			for(var i = 0; i < anchors.length; ++i) {
+				urls.push(anchors[i].getAttribute('href'));
+			}
+			return urls;
+		}
+	}
+
 	var jobs_in_progress = 0;
 	var begin_page_scan = function (page_url, relative_url) {
 		++jobs_in_progress;
@@ -36,44 +47,42 @@ function Crawler(domain, done) {
 					// runs entirely in the scope of the browser.
 					// This makes it really difficult to refactor this lot
 					// into anything much more readable.
-					page.evaluate(function () {
-						var anchors = document.getElementsByTagName('a');
-						var urls = [];
-						for(var i = 0; i < anchors.length; ++i) {
-							urls.push(anchors[i].getAttribute('href'));
-						}
-						var static_resources = [];
-						var images = document.getElementsByTagName('img');
-						for(i = 0; i < images.length; ++i) {
-							static_resources.push(images[i].getAttribute('src'));
-						}
-						var links = document.querySelectorAll('link');
-						for(i = 0; i < links.length; ++i) {
-							var href = links[i].getAttribute(href);
-							if(href) {
-								static_resources.push(href);
+					page.evaluate(anchor_spy, function() {
+						page.evaluate(function () {
+							var urls = anchor_spy();
+							var static_resources = [];
+							var images = document.getElementsByTagName('img');
+							for(i = 0; i < images.length; ++i) {
+								static_resources.push(images[i].getAttribute('src'));
 							}
-						}
-						var scripts = document.getElementsByTagName('script');
-						for(i = 0; i < scripts.length; ++i) {
-							var script_src = scripts[i].getAttribute('src');
-							if(script_src) {
-								static_resources.push(script_src);
+							var links = document.querySelectorAll('link');
+							for(i = 0; i < links.length; ++i) {
+								var href = links[i].getAttribute(href);
+								if(href) {
+									static_resources.push(href);
+								}
 							}
-						}
+							var scripts = document.getElementsByTagName('script');
+							for(i = 0; i < scripts.length; ++i) {
+								var script_src = scripts[i].getAttribute('src');
+								if(script_src) {
+									static_resources.push(script_src);
+								}
+							}
 
-						return {
-							urls: urls,
-							static_resources: static_resources
-						};
-					}, function (data) {
-						for(var i in data.urls) {
-							var normalised_url = normalise_url(page_url, data.urls[i]);
-							url_bank.add(normalised_url);
-						}
-						url_bank.add_static_resources(relative_url, data.static_resources);
-						--jobs_in_progress;
-						page.close();
+							return {
+								urls: urls,
+								static_resources: static_resources
+							};
+						}, function (data) {
+							for(var i in data.urls) {
+								var normalised_url = normalise_url(page_url, data.urls[i]);
+								url_bank.add(normalised_url);
+							}
+							url_bank.add_static_resources(relative_url, data.static_resources);
+							--jobs_in_progress;
+							page.close();
+						});
 					});
 				} else {
 					console.log("Failed to open " + page_url + "(" + status + ")");
