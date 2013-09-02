@@ -17,6 +17,7 @@ function save_results_as_json(results, filename) {
 		if(err) {
 			console.log(err);
 		} else {
+			console.log("\nDone in " + results.time_taken + "s");
 			console.log("Results saved as " + filename);
 		}
 	});	

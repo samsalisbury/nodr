@@ -153,6 +153,8 @@ function Crawler(domain, done, log) {
 	};
 
 	// This cheats and sends back "/" in the case of an off-site URL
+	// or any other URL we don't want to process. Since  '/' is always the
+	// first URL processed.
 	var normalise_url = function (page_url, href) {
 		if(typeof page_url !== 'string') {
 			console.log("page_url = " + typeof page_url);
@@ -188,17 +190,28 @@ function Crawler(domain, done, log) {
 		/^mailto\:/i,
 		/^tel\:/i,
 		/^javascript\:/i,
-		/\.pdf$/i
+		/\.pdf$/i,
+		/\.zip$/i,
+		/\.exe$/i
 	];
 
-	Array.prototype.any_match = function (thing) {
-		for(var i in this) {
-			if(thing.match(this[i])) {
+	function any_match(patterns, subject) {
+		for(var i in patterns) {
+			if(subject.match(patterns[i])) {
 				return true;
 			}
 		}
 		return false;
-	};
+	}
+
+	function any_have_key (hashes, key) {
+		for(var i = 0; i < hashes.length; ++i) {
+			if(hashes[i].hasOwnProperty(key)) {
+				return true;
+			}
+		}
+		return false;
+	}
 
 	var url_bank = (function () {
 		var stored_urls = {};
@@ -206,10 +219,12 @@ function Crawler(domain, done, log) {
 		var not_scanned = {};
 		return {
 			add: function(page_url) {
-				if(stored_urls.hasOwnProperty(page_url) || failed_urls.hasOwnProperty(page_url)) {
+				// Don't add the same page twice
+				if(any_have_key([stored_urls,failed_urls,not_scanned], page_url)) {
 					return;
 				}
-				if(do_not_scan_patterns.any_match(page_url)) {
+				// Filter out URLs we're not interested in
+				if(any_match(do_not_scan_patterns, page_url)) {
 					not_scanned[page_url] = 1;
 					return;
 				}
