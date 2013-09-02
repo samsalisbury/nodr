@@ -12,7 +12,7 @@ function Crawler(domain, done, log) {
 	var url = require('url');
 
 	// Should be passed on command line:
-	var concurrency = 50;
+	var concurrency = 100;
 	var queue_poll_frequency = 1;
 	var port_number = 9999;
 	// End should be passed on command line
@@ -64,7 +64,7 @@ function Crawler(domain, done, log) {
 			log.debug("Successfuly opened " + page_url);
 			log.progress('.');
 			analyse_page(relative_url, page_url, page, done);
-		}, function (page, done) {
+		}, function (page, status, done) {
 			log.warn("Failed to open " + page_url + "(" + status + ")");
 			url_bank.failed(page_url);
 			--jobs_in_progress;
@@ -108,7 +108,7 @@ function Crawler(domain, done, log) {
 				if(status === 'success') {
 					handle_success(page, cleanup);
 				} else {
-					handle_failure(page, cleanup);
+					handle_failure(page, status, cleanup);
 				}
 			});
 		});
