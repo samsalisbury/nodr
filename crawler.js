@@ -60,47 +60,56 @@ function Crawler(domain, done, log) {
 	var jobs_in_progress = 0;
 	var begin_page_scan = function (page_url, relative_url) {
 		++jobs_in_progress;
-		with_open_page(page_url, function(page, status) {
-			if(status == 'success') {
-				log.debug("Successfuly opened " + page_url);
-				log.progress('.');
-				page.evaluate(create_spies, function() {
-					page.evaluate(function () {
-						return {
-							urls: window.anchor_spy(),
-							static_resources: window.static_resources_spy()
-						};
-					}, function (data) {
-						if(data) {
-							log.progress('.');
-							for(var i in data.urls) {
-								if(data.urls.hasOwnProperty(i)) {
-									var normalised_url = normalise_url(relative_url, data.urls[i]);
-									url_bank.add(normalised_url);
-								}
-							}
-							url_bank.add_static_resources(relative_url, data.static_resources);
-						} else {
-							log.error("NO DATA RETURNED FROM " + page_url);
-							url_bank.failed(page_url);
-						}
-						--jobs_in_progress;
-						page.close();
-					});
-				});
-			} else {
-				log.warn("Failed to open " + page_url + "(" + status + ")");
-				url_bank.failed(page_url);
-				--jobs_in_progress;
-				page.close();
-			}
+		with_open_page(page_url, function(page, done) {
+			log.debug("Successfuly opened " + page_url);
+			log.progress('.');
+			analyse_page(relative_url, page_url, page, done);
+		}, function (page, done) {
+			log.warn("Failed to open " + page_url + "(" + status + ")");
+			url_bank.failed(page_url);
+			--jobs_in_progress;
+			done(page);
 		});
 	};
 
-	var with_open_page = function (page_url, callback) {
+	var analyse_page = function (relative_url, page_url, page, done) {
+		page.evaluate(create_spies, function() {
+			page.evaluate(function () {
+				return {
+					urls: window.anchor_spy(),
+					static_resources: window.static_resources_spy()
+				};
+			}, function (data) {
+				if(data) {
+					log.progress('.');
+					for(var i in data.urls) {
+						if(data.urls.hasOwnProperty(i)) {
+							var normalised_url = normalise_url(relative_url, data.urls[i]);
+							url_bank.add(normalised_url);
+						}
+					}
+					url_bank.add_static_resources(relative_url, data.static_resources);
+				} else {
+					log.error("NO DATA RETURNED FROM " + page_url);
+					url_bank.failed(page_url);
+				}
+				--jobs_in_progress;
+				done(page);
+			});
+		});
+	};
+
+	var with_open_page = function (page_url, handle_success, handle_failure) {
+		var cleanup = function (page) {
+			page.close();
+		};
 		with_page(function(page) {
 			page.open(page_url, function (status) {
-				callback(page, status);
+				if(status === 'success') {
+					handle_success(page, cleanup);
+				} else {
+					handle_failure(page, cleanup);
+				}
 			});
 		});
 	};
