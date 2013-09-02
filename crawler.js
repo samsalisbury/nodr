@@ -12,8 +12,8 @@ function Crawler(domain, done, log) {
 	var url = require('url');
 
 	// Should be passed on command line:
-	var concurrency = 30;
-	var queue_poll_frequency = 10;
+	var concurrency = 50;
+	var queue_poll_frequency = 1;
 	var port_number = 9999;
 	// End should be passed on command line
 
