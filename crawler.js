@@ -24,7 +24,7 @@ function Crawler(domain, done) {
 		});
 	};
 
-	var create_anchor_spy = function () {
+	var create_spies = function () {
 		window.anchor_spy = function () {
 			var anchors = document.getElementsByTagName('a');
 			var urls = [];
@@ -33,7 +33,30 @@ function Crawler(domain, done) {
 			}
 			return urls;
 		};
+		window.static_resources_spy = function () {
+			var static_resources = [];
+			var images = document.getElementsByTagName('img');
+			for(var i = 0; i < images.length; ++i) {
+				static_resources.push(images[i].getAttribute('src'));
+			}
+			var links = document.querySelectorAll('link');
+			for(i = 0; i < links.length; ++i) {
+				var href = links[i].getAttribute(href);
+				if(href) {
+					static_resources.push(href);
+				}
+			}
+			var scripts = document.getElementsByTagName('script');
+			for(i = 0; i < scripts.length; ++i) {
+				var script_src = scripts[i].getAttribute('src');
+				if(script_src) {
+					static_resources.push(script_src);
+				}
+			}
+			return static_resources;
+		};
 	};
+
 
 	var jobs_in_progress = 0;
 	var begin_page_scan = function (page_url, relative_url) {
@@ -43,37 +66,11 @@ function Crawler(domain, done) {
 				if(status == 'success') {
 					log.debug("Successfuly opened " + page_url);
 					log.progress('.');
-					// Inside page.evaluate, the function has no access
-					// to the rest of the local or global variables, it
-					// runs entirely in the scope of the browser.
-					// This makes it really difficult to refactor this lot
-					// into anything much more readable.
-					page.evaluate(create_anchor_spy, function() {
+					page.evaluate(create_spies, function() {
 						page.evaluate(function () {
-							var urls = window.anchor_spy();
-							var static_resources = [];
-							var images = document.getElementsByTagName('img');
-							for(i = 0; i < images.length; ++i) {
-								static_resources.push(images[i].getAttribute('src'));
-							}
-							var links = document.querySelectorAll('link');
-							for(i = 0; i < links.length; ++i) {
-								var href = links[i].getAttribute(href);
-								if(href) {
-									static_resources.push(href);
-								}
-							}
-							var scripts = document.getElementsByTagName('script');
-							for(i = 0; i < scripts.length; ++i) {
-								var script_src = scripts[i].getAttribute('src');
-								if(script_src) {
-									static_resources.push(script_src);
-								}
-							}
-
 							return {
-								urls: urls,
-								static_resources: static_resources
+								urls: window.anchor_spy(),
+								static_resources: window.static_resources_spy()
 							};
 						}, function (data) {
 							if(data) {
