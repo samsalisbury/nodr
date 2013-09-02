@@ -1,11 +1,11 @@
-var crawl = require('./crawl.js');
+var crawler = require('./crawler.js');
 
 // Pass in a second argument site_map_only to hide messy static resource output.
 
 var domain = process.argv.slice(2)[0];
 var output_type = process.argv.slice(2)[1];
 
-crawl.go(domain, function (results) {
+crawler.go(domain, function (results) {
 	save_results_as_json(results, domain);
 });
 

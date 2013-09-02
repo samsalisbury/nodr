@@ -18,13 +18,13 @@ function Crawler(domain, done) {
 	// End should be passed on command line
 
 	phantom.onError = function (msg, trace) {
-		console.log("PhantomJS ERROR:::" + msg);
+		log.error("PhantomJS ERROR:::" + msg);
 		trace.forEach(function(item) {
-			console.log('  ', item.file, ':', item.line);
+			log.error('  ', item.file, ':', item.line);
 		});
 	};
 
-	var anchor_spy = function () {
+	var create_anchor_spy = function () {
 		window.anchor_spy = function () {
 			var anchors = document.getElementsByTagName('a');
 			var urls = [];
@@ -32,8 +32,8 @@ function Crawler(domain, done) {
 				urls.push(anchors[i].getAttribute('href'));
 			}
 			return urls;
-		}
-	}
+		};
+	};
 
 	var jobs_in_progress = 0;
 	var begin_page_scan = function (page_url, relative_url) {
@@ -41,15 +41,16 @@ function Crawler(domain, done) {
 		with_page(function(page) {
 			page.open(page_url, function(status) {
 				if(status == 'success') {
-					console.log("Successfuly opened " + page_url);
+					log.debug("Successfuly opened " + page_url);
+					log.progress('.');
 					// Inside page.evaluate, the function has no access
 					// to the rest of the local or global variables, it
 					// runs entirely in the scope of the browser.
 					// This makes it really difficult to refactor this lot
 					// into anything much more readable.
-					page.evaluate(anchor_spy, function() {
+					page.evaluate(create_anchor_spy, function() {
 						page.evaluate(function () {
-							var urls = anchor_spy();
+							var urls = window.anchor_spy();
 							var static_resources = [];
 							var images = document.getElementsByTagName('img');
 							for(i = 0; i < images.length; ++i) {
@@ -75,23 +76,62 @@ function Crawler(domain, done) {
 								static_resources: static_resources
 							};
 						}, function (data) {
-							for(var i in data.urls) {
-								var normalised_url = normalise_url(page_url, data.urls[i]);
-								url_bank.add(normalised_url);
+							if(data) {
+								log.progress('.');
+								for(var i in data.urls) {
+									if(data.urls.hasOwnProperty(i)) {
+										var normalised_url = normalise_url(relative_url, data.urls[i]);
+										url_bank.add(normalised_url);
+									}
+								}
+								url_bank.add_static_resources(relative_url, data.static_resources);
+							} else {
+								log.error("NO DATA RETURNED FROM " + page_url);
+								url_bank.failed(page_url);
 							}
-							url_bank.add_static_resources(relative_url, data.static_resources);
 							--jobs_in_progress;
 							page.close();
 						});
 					});
 				} else {
-					console.log("Failed to open " + page_url + "(" + status + ")");
+					log.warn("Failed to open " + page_url + "(" + status + ")");
 					url_bank.failed(page_url);
 					--jobs_in_progress;
 					page.close();
 				}
 			});
 		});
+	};
+
+	// 1 = errors only, 2 = warnings, 3 = info, 4 = debug, 5 = trace
+	var log_level = 2;
+	var log = {
+		log: function (message, level) {
+			if(!level) {
+				throw 'log.log requires you to set a level [1-5]';
+			}
+			if(log_level >= level) {
+				console.log('\n' + message);
+			}
+		},
+		error: function (message) {
+			log.log(message, 1);
+		},
+		warn: function (message) {
+			log.log(message, 2);
+		},
+		info: function (message) {
+			log.log(message, 3);
+		},
+		debug: function (message) {
+			log.log(message, 4);
+		},
+		trace: function (message) {
+			log.log(message, 5);
+		},
+		progress: function (symbol) {
+			process.stdout.write(symbol);
+		}
 	};
 
 	var with_page = function (callback) {
@@ -114,8 +154,8 @@ function Crawler(domain, done) {
 			} else {
 				waiting_for_the_phantom = true;
 				++jobs_in_progress;
-				console.log("Creating new phantom instance...");
-				console.log('Using port: ' + port_number);
+				log.warn("Creating new phantom instance...");
+				log.warn('Using port: ' + port_number);
 				phantom.create('--load-images=no',{'port': port_number}, function(ph) {
 					the_phantom = ph;
 					callback(the_phantom);
@@ -134,6 +174,14 @@ function Crawler(domain, done) {
 
 	// This cheats and sends back "/" in the case of an off-site URL
 	var normalise_url = function (page_url, href) {
+		if(typeof page_url !== 'string') {
+			console.log("page_url = " + typeof page_url);
+			return '/';
+		}
+		if(typeof href !== 'string') {
+			console.log("href = " + typeof href);
+			return '/';
+		}
 		var resolved = url.resolve(page_url, href);
 		var http_start = 'http://' + root_domain;
 		var https_start = 'https://' + root_domain;
@@ -156,12 +204,33 @@ function Crawler(domain, done) {
 		return resolved;
 	};
 
+	var do_not_scan_patterns = [
+		/^mailto\:/i,
+		/^tel\:/i,
+		/^javascript\:/i,
+		/\.pdf$/i
+	];
+
+	Array.prototype.any_match = function (thing) {
+		for(var i in this) {
+			if(thing.match(this[i])) {
+				return true;
+			}
+		}
+		return false;
+	};
+
 	var url_bank = (function () {
 		var stored_urls = {};
 		var failed_urls = {};
+		var not_scanned = {};
 		return {
-			add: function(page_url, static_resources) {
+			add: function(page_url) {
 				if(stored_urls.hasOwnProperty(page_url) || failed_urls.hasOwnProperty(page_url)) {
+					return;
+				}
+				if(do_not_scan_patterns.any_match(page_url)) {
+					not_scanned[page_url] = 1;
 					return;
 				}
 				stored_urls[page_url] = [];
@@ -196,7 +265,8 @@ function Crawler(domain, done) {
 	var queue = [];
 
 	var enqueue_page_scan = function (page_url) {
-		console.log("Adding " + page_url + " to queue["+ queue.length +"]...");
+		log.debug("Adding " + page_url + " to queue["+ queue.length +"]...");
+		log.progress('.');
 		queue.push(page_url);
 		wait();
 	};
@@ -211,7 +281,7 @@ function Crawler(domain, done) {
 
 	var print_status = function () {
 		var status_message = "TIME ELAPSED: " + Math.floor(t()) + "s, Queue size: " + queue.length + "; Jobs in progress: " + jobs_in_progress;
-		console.log(status_message);
+		log.info(status_message);
 	};
 
 	// print status roughly every 5 seconds
@@ -233,11 +303,12 @@ function Crawler(domain, done) {
 		} else if(queue.length > 0) {
 			var relative_url = queue.pop();
 			var full_url = url.resolve("http://"+root_domain+"/", relative_url);
-			console.log('=== Beginning scan of ' + full_url);
+			log.debug('Getting ' + full_url);
+			log.progress('.');
 			try {
 				begin_page_scan(full_url, relative_url);
 			} catch(error) {
-				console.log("===ERROR (consume_queue)=== " + error);
+				log.error(error);
 			}
 			wait();
 		} else if(jobs_in_progress > 0) {
