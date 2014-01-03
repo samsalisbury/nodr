@@ -18,7 +18,8 @@ exports.create = function (log, jobCounter, url_bank, normalise_url, enqueue_pag
 
     function begin_page_scan(page_url, relative_url) {
         jobCounter.increment();
-        with_open_page(page_url, function(page, done) {
+
+        with_open_page_with_spies(page_url, create_spies, function(page, done) {
             log.debug("Successfully opened " + page_url);
             log.progress('.');
             analyse_page(relative_url, page_url, page, done);
@@ -30,30 +31,36 @@ exports.create = function (log, jobCounter, url_bank, normalise_url, enqueue_pag
         });
     }
 
+    function with_open_page_with_spies(page_url, create_spies, success, failure) {
+        with_open_page(page_url, function(page, done) {
+            page.evaluate(create_spies, function() {
+                success(page, done);
+            }, failure)
+        });
+    }
+
     function analyse_page(relative_url, page_url, page, done) {
-        page.evaluate(create_spies, function() {
-            page.evaluate(function () {
-                return {
-                    urls: window.anchor_spy(),
-                    static_resources: window.static_resources_spy()
-                };
-            }, function (data) {
-                if(data) {
-                    log.progress('.');
-                    for(var i in data.urls) {
-                        if(data.urls.hasOwnProperty(i)) {
-                            var normalised_url = normalise_url(relative_url, data.urls[i]);
-                            url_bank.add(normalised_url, enqueue_page_scan);
-                        }
+        page.evaluate(function () {
+            return {
+                urls: window.anchor_spy(),
+                static_resources: window.static_resources_spy()
+            };
+        }, function (data) {
+            if(data) {
+                log.progress('.');
+                for(var i in data.urls) {
+                    if(data.urls.hasOwnProperty(i)) {
+                        var normalised_url = normalise_url(relative_url, data.urls[i]);
+                        url_bank.add(normalised_url, enqueue_page_scan);
                     }
-                    url_bank.add_static_resources(relative_url, data.static_resources);
-                } else {
-                    log.error("NO DATA RETURNED FROM " + page_url);
-                    url_bank.failed(page_url);
                 }
-                jobCounter.decrement();
-                done(page);
-            });
+                url_bank.add_static_resources(relative_url, data.static_resources);
+            } else {
+                log.error("NO DATA RETURNED FROM " + page_url);
+                url_bank.failed(page_url);
+            }
+            jobCounter.decrement();
+            done(page);
         });
     }
 
