@@ -9,6 +9,6 @@
 	"author": "Sam Salisbury",
 	"license": "BSD",
 	"dependencies": {
-		"phantom": "0.5.4"
+		"phantom": "https://github.com/samsalisbury/phantomjs-node.git#dedde5c816e54f592278c16af9cf05a4ae4d529c"
 	}
 }
