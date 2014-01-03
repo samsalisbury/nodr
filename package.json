@@ -9,6 +9,6 @@
 	"author": "Sam Salisbury",
 	"license": "BSD",
 	"dependencies": {
-		"phantom": "0.5.2"
+		"phantom": "0.5.4"
 	}
 }
