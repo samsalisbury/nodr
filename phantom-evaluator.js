@@ -1,6 +1,16 @@
 var phantom = require('phantom');
 
+phantom.stderrHandler = function (message) {
+    if(message.match(/(No such method.*socketSentData)|(CoreText performance note)|(WARNING: Method userSpaceScaleFactor in class NSView is deprecated on 10.7 and later.)/))
+        return;
+    console.error(message);
+}
+
 exports.create = function (log, jobCounter, url_bank, normalise_url, enqueue_page_scan) {
+
+    var the_phantom = null;
+    var waiting_for_the_phantom = false;
+    var port_number = 9999;
 
     function destruct() {
         the_phantom.exit();
@@ -9,7 +19,7 @@ exports.create = function (log, jobCounter, url_bank, normalise_url, enqueue_pag
     function begin_page_scan(page_url, relative_url) {
         jobCounter.increment();
         with_open_page(page_url, function(page, done) {
-            log.debug("Successfuly opened " + page_url);
+            log.debug("Successfully opened " + page_url);
             log.progress('.');
             analyse_page(relative_url, page_url, page, done);
         }, function (page, status, done) {
@@ -47,16 +57,15 @@ exports.create = function (log, jobCounter, url_bank, normalise_url, enqueue_pag
         });
     }
 
-    var port_number = 9999;
-    phantom.onError = function (msg, trace) {
-        log.error("PhantomJS ERROR:::" + msg);
+    phantom.onError = handle_in_page_error;
+
+    function handle_in_page_error(msg, trace) {
+        log.error("PhantomJS ERROR::" + msg);
         trace.forEach(function(item) {
             log.error('  ', item.file, ':', item.line);
         });
-    };
+    }
 
-    var the_phantom = null;
-    var waiting_for_the_phantom = false;
 
     function with_phantom(callback) {
         if(the_phantom === null) {
@@ -102,28 +111,6 @@ exports.create = function (log, jobCounter, url_bank, normalise_url, enqueue_pag
             });
         });
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     return {
         begin_page_scan: begin_page_scan,
