@@ -102,7 +102,10 @@ function Crawler(domain, done, log) {
 		var failures = url_bank.failures();
 		for(i in failures) {
 			if(failures.hasOwnProperty(i)) {
-				pages_failed.push(i);
+				pages_failed.push({
+                    url: failures[i].url,
+                    status: failures[i].status
+                });
 			}
 		}
 

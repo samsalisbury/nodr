@@ -1,5 +1,5 @@
 var crawler = require('./crawler.js');
-var log = require('./log.js').create(5);
+var log = require('./log.js').create(2);
 
 // Pass in a second argument site_map_only to hide messy static resource output.
 

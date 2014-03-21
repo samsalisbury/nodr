@@ -35,10 +35,10 @@ exports.create = function () {
             }
             return count;
         },
-        failed: function(page_url) {
+        failed: function(page_url, status) {
             // this indicates that a page could not be scanned
             delete stored_urls[page_url];
-            failed_urls[page_url] = 1;
+            failed_urls[page_url] = { status: status };
         }
     };
 };

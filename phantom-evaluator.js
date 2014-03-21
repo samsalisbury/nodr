@@ -25,7 +25,7 @@ exports.create = function (log, jobCounter, url_bank, normalise_url, enqueue_pag
             analyse_page(relative_url, page_url, page, done);
         }, function (page, status, done) {
             log.warn("Failed to open " + page_url + "(" + status + ")");
-            url_bank.failed(page_url);
+            url_bank.failed(page_url, status);
             jobCounter.decrement();
             done(page);
         });
@@ -57,7 +57,7 @@ exports.create = function (log, jobCounter, url_bank, normalise_url, enqueue_pag
                 url_bank.add_static_resources(relative_url, data.static_resources);
             } else {
                 log.error("NO DATA RETURNED FROM " + page_url);
-                url_bank.failed(page_url);
+                url_bank.failed(page_url, 'Spies returned no data.');
             }
             jobCounter.decrement();
             done(page);
@@ -101,11 +101,31 @@ exports.create = function (log, jobCounter, url_bank, normalise_url, enqueue_pag
             page.close();
         };
         with_page(function(page) {
+
+            var httpStatusCode = null;
+
+            page.onResourceRequested = function (requestData, networkRequest) {
+
+            };
+
+            page.onResourceReceived = function (res) {
+                if(res.url == page_url) {
+                    httpStatusCode = res.status;
+                }
+            }
+
             page.open(page_url, function (status) {
                 if(status === 'success') {
                     handle_success(page, cleanup);
                 } else {
-                    handle_failure(page, status, cleanup);
+                    log.warn('PAGE FAILED TO LOAD :: url: ' + page_url + ', HTTP status: ' + httpStatusCode);
+                    try {
+                        handle_failure(page, status, cleanup);
+                    } catch(ex) {
+                        log.error('FAILED TO HANDLE :: ' + ex);
+                        jobCounter.decrement();
+                        url_bank.failed(page_url, httpStatusCode);
+                    }
                 }
             });
         });
