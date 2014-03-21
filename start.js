@@ -11,8 +11,9 @@ crawler.go(domain, function (results) {
 }, log);
 
 function save_results_as_json(results, filename) {
-	filename = filename + ".json";
 	var fs = require('fs');
+	fs.mkdir("results");
+	filename = "results/" + filename + ".json";
 	fs.writeFile(filename, JSON.stringify(results), function(err) {
 		if(err) {
 			console.log(err);
